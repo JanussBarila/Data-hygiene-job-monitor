@@ -1,0 +1,23 @@
+# DATA HIGIENE: include only the known project source files and documentation.
+# Everything else (mail credentials/config, databases, exports, logs, previews,
+# archives and Python environments) stays on this computer.
+# To track a new source file later, add its exact name below with !/.
+/*
+!/.gitignore
+!/README.md
+!/job_filter_mcp.py
+!/job_tracker.py
+!/job_tracker_README.md
+!/install_job_schedule.ps1
+!/vacancies_email.py
+!/job_tracker_email.py
+!/email_settings.py
+!/Email_Settings.cmd
+!/open_email_settings.ps1
+!/install_email_notifications.ps1
+!/README_email.md
+!/pyproject.toml
+!/uv.lock
+
+# Ignore rules do not remove files already tracked in Git.
+# Review the initial commit's file list before publishing.
