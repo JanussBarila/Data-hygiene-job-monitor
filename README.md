@@ -1,104 +1,104 @@
-# DATA HIGIENE — vakanču atlase
+# Data Hygiene — Automated Job Vacancy Intelligence
 
-Python projekts Latvijas darba piedāvājumu atlasei, izmaiņu vēsturei un e-pasta paziņojumiem. Tas izmanto CSP cilvēkkapitāla MCP serverī saglabātos CV.lv sludinājumus un sagatavo latviski noformētu vakanču izlasi.
+A Windows-first Python workflow that converts Latvian vacancy data into a monitored, queryable job-market feed. It filters relevant roles, preserves change history, produces analysis-ready exports, and sends recipient-specific alerts without repeatedly sending the same vacancy.
 
-## Iespējas
+This is a practical data-engineering and automation project built around a real business problem: reducing manual vacancy searches while maintaining an auditable history of what changed.
 
-- Filtri pēc mēnešalgas apakšējās robežas, pilsētas, atslēgvārdiem un pēdējā novērojuma datuma.
-- Pašreizējās atlases, jaunu vakanču un izmaiņu eksports CSV failos.
-- Vēstures saglabāšana SQLite datubāzē.
-- Atsevišķi e-pasta paziņojumi vairākiem saņēmējiem; nosūtītās vakances tiek uzskaitītas katram adresātam.
-- DATA HIGIENE HTML vēstule latviešu valodā un vienkārša teksta alternatīva.
-- Vienreizējs tests uz savu adresi un priekšskatījums bez nosūtīšanas.
-- Windows uzdevumu plānotāja skripti ikdienas palaišanai.
+## What the system does
 
-“Jauna” nozīmē pirmoreiz atrasta vai attiecīgajam adresātam vēl nenosūtīta vakance — atkarībā no pārskata. Tā ne vienmēr ir šodien publicēta. Pirms pieteikšanās sludinājuma pieejamība jāpārbauda CV.lv.
+- Queries Latvia's Human Capital MCP data service over JSON-RPC/HTTPS
+- Applies salary, location, recency, and multilingual keyword rules in SQL
+- Validates response structure and protects CSV exports from formula injection
+- Stores vacancy history and delivery state in SQLite
+- Detects newly observed vacancies and changes to tracked fields
+- Produces CSV outputs suitable for Excel or Power BI
+- Generates HTML and plain-text email reports
+- Schedules unattended Windows runs with locking, retries, and logs
+- Protects local email credentials with Windows DPAPI
 
-## Prasības un palaišana
+## Architecture
 
-Python 3.10 vai jaunāks; izmantota standarta bibliotēka. Pasta iestatījumu logs izmanto Tkinter, bet paroles glabāšana un uzdevumu plānotājs — Windows. Lai ielādētu vakances un nosūtītu e-pastu, vajadzīgs internets.
-
-Piemēri PowerShell terminālī, atrodoties projekta mapē, ja `uv` ir pieejams:
-
-```powershell
-uv run .\job_tracker.py
+```mermaid
+flowchart LR
+    A[Human Capital MCP] --> B[SQL filters]
+    B --> C[Python validation]
+    C --> D[(SQLite history)]
+    D --> E[CSV exports]
+    D --> F[Email alerts]
 ```
 
-Tas atjaunina atlasi un vēsturi. Filtri atrodas `job_filter_mcp.py`.
+## Engineering decisions
 
-Pasta iestatījumus atver ar dubultklikšķi uz `Email_Settings.cmd` Windows failu pārlūkā. Saglabā savu sūtītāja adresi, saņēmējus un pasta lietotnes paroli. Paroli neievieto programmas kodā vai README.
-
-Pēc pasta iestatīšanas:
-
-```powershell
-# Atjaunināt datus un apskatīt vēstuli, to nenosūtot
-uv run .\job_tracker_email.py --preview
-if ($LASTEXITCODE -eq 0) { Invoke-Item .\email_test_preview.html }
-
-# Nosūtīt vienu testa vēstuli uz sūtītāja adresi no iestatījumiem
-uv run .\job_tracker_email.py --test
-
-# Parastā nosūtīšana: katram saņēmējam tikai vēl nenosūtītās vakances
-uv run .\job_tracker_email.py
-```
-
-Ja PowerShell neatrod `uv`, komandas sākumu aizstāj ar:
-
-```powershell
-& "$env:USERPROFILE\.local\bin\uv.exe" run .\job_tracker.py
-```
-
-Ikdienas uzdevuma iestatīšana aprakstīta [vakanču vēstures instrukcijā](job_tracker_README.md), pasta pieslēgšana un kļūdu diagnostika — [pasta instrukcijā](README_email.md). Esošam, strādājošam projektam tikai saglabāšanas GitHub dēļ uzdevumu nav jāinstalē atkārtoti.
-
-## Galvenie faili
-
-| Fails | Nozīme |
+| Concern | Implementation |
 | --- | --- |
-| `job_filter_mcp.py` | MCP pieprasījumi, SQL atlase un filtri |
-| `job_tracker.py` | Vēsture, salīdzinājums un CSV eksports |
-| `vacancies_email.py` | Vēstuļu noformējums un pasta nosūtīšana |
-| `job_tracker_email.py` | Datu atjaunināšana un e-pasta režīmu palaišana |
-| `email_settings.py` | Pasta iestatījumu logs |
-| `Email_Settings.cmd`, `open_email_settings.ps1` | Iestatījumu loga atvēršana |
-| `install_job_schedule.ps1` | Windows ikdienas uzdevuma iestatīšana |
-| `install_email_notifications.ps1` | Pasta pieslēgšana esošajam uzdevumam |
+| Data quality | Type and schema checks, numeric validation, deduplication by vacancy ID |
+| Change tracking | SQLite history plus field-level change records |
+| Reliability | Atomic file writes, process locks, retry-aware scheduling, execution logs |
+| Delivery control | Recipient-level state prevents repeat notifications |
+| Security | Credentials stay outside Git; passwords are protected with Windows DPAPI |
+| Reporting | Clean CSV outputs and formatted HTML summaries |
 
-## Saglabāšana GitHub no VS Code
+## Main outputs
 
-Šo README un `.gitignore` pievieno esošajai projekta mapei blakus `job_tracker.py`. Tie paredzēti Tava pašreizējā koda saglabāšanai; šajā sagatavošanas komplektā nav programmas failu aizvietojumu.
+| Output | Purpose |
+| --- | --- |
+| `vacancies_live.csv` | Current vacancies matching the configured rules |
+| `vacancies_new.csv` | Vacancies first discovered during the current day |
+| `vacancies_history.csv` | Auditable first-seen and last-seen history |
+| `vacancies_changes.csv` | Field-level salary, deadline, and status changes |
+| `vacancies_history.sqlite3` | Persistent local vacancy history |
+| HTML email | Human-readable alert with links and vacancy details |
 
-1. Pārbaudi, vai datorā ir [Git](https://git-scm.com/download/win): PowerShell komandai `git --version` jāparāda versija. Pēc Git instalēšanas pārstartē VS Code.
-2. VS Code atver esošo projekta mapi: **File → Open Folder**.
-3. Atver **Source Control** ar **Ctrl+Shift+G**. Ja redzama tikai **Initialize Repository**, vispirms nospied to.
-4. Izvēlies **Publish to GitHub**. Ja poga nav redzama, meklē `Publish to GitHub` komandu ar **Ctrl+Shift+P**.
-5. Pieslēdzies savam GitHub kontam pārlūkā. Ja vajadzīgs, izveido kontu [GitHub](https://github.com/signup).
-6. Izvēlies **Private** un repozitorija nosaukumu `data-higiene-vacancies`.
-7. Pārskati pirmā commit failus. Tajos jābūt programmas kodam, dokumentācijai un `.gitignore`. Pasta iestatījumu JSON, datubāzēm, CSV eksportiem, žurnāliem un vēstuļu kopijām sarakstā nav jābūt.
-8. Pabeidz publicēšanu un atver repozitoriju GitHub. Pārbaudi, vai redzami `job_filter_mcp.py`, `job_tracker.py` un pasta moduļi.
+Generated data, logs, email configuration, credentials, and local databases are intentionally excluded from this public repository.
 
-Pēc turpmākām koda izmaiņām: saglabā failus → **Source Control** → atzīmē izmaiņas ar **+** → ievadi īsu aprakstu → **Commit** → **Sync Changes**. Tikai `Ctrl+S` saglabā failu datorā; GitHub izmaiņas parādās pēc nosūtīšanas.
+## Project structure
 
-Ja Git pirmoreiz prasa autora vārdu un e-pastu, iestati tos lokāli šim projektam VS Code terminālī. Pirms komandu izpildes aizstāj piemēra vērtības ar savējām; e-pastam vari izmantot GitHub sadaļā **Settings → Emails** norādīto `noreply` adresi.
+| File | Responsibility |
+| --- | --- |
+| `job_filter_mcp.py` | MCP client, SQL query construction, filters, and validation |
+| `job_tracker.py` | History, comparison logic, SQLite storage, and CSV export |
+| `vacancies_email.py` | Secure configuration, message rendering, and SMTP delivery |
+| `job_tracker_email.py` | End-to-end refresh and email orchestration |
+| `email_settings.py` | Local email settings interface |
+| `install_job_schedule.ps1` | Windows Task Scheduler setup |
+| `install_email_notifications.ps1` | Email notification setup |
+| `README_email.md` | Detailed email configuration and troubleshooting |
+| `job_tracker_README.md` | Detailed scheduling and history documentation |
+
+## Quick start
+
+Requirements: Python 3.10+, Windows for DPAPI and scheduled execution, and internet access.
 
 ```powershell
-git config user.name "Tavs vārds"
-git config user.email "tava-github-adrese@example.com"
+# Refresh the vacancy selection and history
+uv run .\job_tracker.py
+
+# Preview the email without sending
+uv run .\job_tracker_email.py --preview
+
+# Send one test message to the configured sender address
+uv run .\job_tracker_email.py --test
 ```
 
-## Kas paliek datorā
+The filtering rules—minimum salary, city, lookback period, and keywords—are configured in `job_filter_mcp.py`.
 
-Pievienotais `.gitignore` atļauj Git uzskaitīt tikai konkrēti nosauktos avota un dokumentācijas failus. Ja vēlāk pievieno jaunu Python moduli, papildini `.gitignore` ar rindu `!/jauns_modulis.py`, lai to arī saglabātu.
+## Data source
 
-Pasta konfigurācija, saņēmēju adreses, šifrētā parole, vēstures datubāzes, eksporti, žurnāli un vēstuļu kopijas netiek iekļautas jaunā repozitorijā. `.gitignore` neizņem failus, kas Git jau ir uzskaitīti; tādēļ pārbaudi pirmā commit failu sarakstu. Šīs instrukcijas izmanto Git caur VS Code, nevis visas darba mapes vilkšanu GitHub pārlūka augšupielādē.
+Vacancy data is retrieved from the [Latvian Official Statistics Human Capital MCP service](https://mcp-hc.stat.gov.lv/). The source feed contains CV.lv vacancy snapshots. Data attribution follows [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
 
-GitHub saglabā kodu un tā versijas. Tas pats par sevi nepārņem ikrīta palaišanu — tā turpina darboties Tavā Windows datorā.
+## AI-assisted development
 
-Šis ir koda saglabāšanas komplekts, nevis pilna darba vides rezerves kopija. Pārceļoties uz citu datoru, atsevišķi privāti pārnes `vacancies_history.sqlite3` un `vacancies_email.sqlite3`, lai saglabātu atrasto un nosūtīto vakanču vēsturi. Pasta paroli jaunajā datorā ievadi vēlreiz un atjauno Windows uzdevumu.
+I built this project using AI-assisted development with Codex and ChatGPT. My role included defining the requirements and business rules, choosing the workflow, reviewing and iterating the code, validating query and export results, and checking privacy, failure handling, and usability.
 
-## Datu avots
+AI accelerated implementation; responsibility for the problem definition, decisions, validation, and final output remained with me.
 
-- [CSP cilvēkkapitāla MCP serveris](https://mcp-hc.stat.gov.lv/); sākotnējie sludinājumi — CV.lv.
-- Datu licences norāde: [CC BY 4.0](https://creativecommons.org/licenses/by/4.0/).
-- Vakanču dati tiek atlasīti, normalizēti un pārformatēti pārskatiem. Sludinājumu nosaukumi saglabāti avota valodā.
+## Skills demonstrated
 
-GitHub instrukciju avoti: [publicēšana no VS Code](https://code.visualstudio.com/docs/sourcecontrol/repos-remotes#publish-to-github), [Git iestatīšana VS Code](https://code.visualstudio.com/docs/sourcecontrol/github#prerequisites), [failu ignorēšana](https://docs.github.com/en/get-started/git-basics/ignoring-files).
+Python · SQL · JSON-RPC · MCP · SQLite · data validation · change detection · reporting automation · secure configuration · Windows Task Scheduler · Git/GitHub
+
+## Next improvements
+
+- Add automated unit and integration tests
+- Package configuration separately from business logic
+- Add a Power BI dashboard for vacancy trends and salary analysis
+- Add a cross-platform scheduler and secrets backend
